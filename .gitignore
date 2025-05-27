@@ -1,0 +1,17 @@
+# Dependências
+node_modules/
+
+# Pastas do Expo
+.expo/
+.expo-shared/
+
+# Ambientes
+.env
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Cache do sistema
+.DS
