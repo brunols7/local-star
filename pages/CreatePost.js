@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Image, KeyboardAvoidingView, Platform, Alert, ToastAndroid } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Image, KeyboardAvoidingView, Platform, Alert, ToastAndroid, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
@@ -7,7 +7,7 @@ import MapView, { Marker } from 'react-native-maps';
 import Constants from 'expo-constants';
 import Icon from 'react-native-vector-icons/FontAwesome';
 
-const GOOGLE_MAPS_API_KEY = Constants.expoConfig.extra.googleMapsApiKey;
+const Maps_API_KEY = Constants.expoConfig.extra.googleMapsApiKey;
 
 const CreatePost = ({ navigation }) => {
   const [title, setTitle] = useState('');
@@ -20,19 +20,28 @@ const CreatePost = ({ navigation }) => {
   const [streetName, setStreetName] = useState('');
   const [showMap, setShowMap] = useState(false);
   const [errors, setErrors] = useState({ title: false, description: false, accessibility: false });
+  const [isLocationLoading, setIsLocationLoading] = useState(false);
 
   const accessibilityOptions = ['Rampa', 'Banheiro Acessível', 'Elevador', 'Outro'];
+  const keyboardVerticalOffsetValue = 0;
 
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
-        let loc = await Location.getCurrentPositionAsync({});
-        setLocation({
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-        });
-        updateStreetName(loc.coords.latitude, loc.coords.longitude);
+        try {
+          let loc = await Location.getCurrentPositionAsync({
+            accuracy: Location.LocationAccuracy.Balanced,
+            timeout: 10000,
+          });
+          setLocation({
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+          });
+          await updateStreetName(loc.coords.latitude, loc.coords.longitude);
+        } catch (error) {
+          // Não mostra erro para localização inicial automática se falhar
+        }
       }
     })();
   }, []);
@@ -43,19 +52,30 @@ const CreatePost = ({ navigation }) => {
   };
 
   const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      showToast('Permissão para acessar a galeria negada');
-      return;
-    }
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: [ImagePicker.MediaType.image],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        showToast('Permissão para acessar a galeria negada');
+        return;
+      }
+      let result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 1,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      if (result.assets && result.assets.length > 0 && result.assets[0].uri) {
+        setImage(result.assets[0].uri);
+      } else {
+        showToast('Nenhuma imagem foi selecionada ou ocorreu um erro.');
+      }
+    } catch (error) {
+      showToast('Ocorreu um erro ao tentar abrir a galeria.');
     }
   };
 
@@ -64,47 +84,59 @@ const CreatePost = ({ navigation }) => {
       'Remover Imagem',
       'Tem certeza que deseja remover a imagem?',
       [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
-        {
-          text: 'Remover',
-          onPress: () => setImage(null),
-        },
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Remover', onPress: () => setImage(null) },
       ],
       { cancelable: true }
     );
-  };
-
-  const toggleMap = async () => {
-    // Request location permission
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      showToast('Permissão para acessar localização é necessária');
-      return;
-    }
-    // Get current location before showing map
-    try {
-      const loc = await Location.getCurrentPositionAsync({});
-      setLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
-      updateStreetName(loc.coords.latitude, loc.coords.longitude);
-      setShowMap(prev => !prev);
-    } catch (error) {
-      showToast('Erro ao obter localização');
-    }
   };
 
   const updateStreetName = async (latitude, longitude) => {
     try {
       let address = await Location.reverseGeocodeAsync({ latitude, longitude });
       if (address.length > 0) {
-        setStreetName(`${address[0].street || ''}, ${address[0].city || ''}`);
+        const street = address[0].street || '';
+        const city = address[0].city || '';
+        setStreetName(`${street}, ${city}`);
       } else {
         setStreetName('Localização desconhecida');
       }
     } catch (error) {
       setStreetName('Erro ao carregar endereço');
+    }
+  };
+
+  const toggleMap = async () => {
+    if (isLocationLoading) return;
+    setIsLocationLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        showToast('Permissão para acessar localização é necessária');
+        setIsLocationLoading(false);
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.LocationAccuracy.Balanced,
+        timeout: 15000, // 15 segundos de timeout
+      });
+      setLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+      await updateStreetName(loc.coords.latitude, loc.coords.longitude);
+      setShowMap(prev => !prev);
+    } catch (error) {
+      if (error.message && error.message.toLowerCase().includes("timeout")) {
+        showToast('Tempo esgotado ao obter localização. Tente novamente.');
+      } else if (error.message && error.message.includes("Location request failed due to unsatisfied device settings")) {
+        Alert.alert(
+           "Serviço de Localização Desativado",
+           "Por favor, ative os serviços de localização do seu dispositivo (modo de alta precisão) para registrar a localização.",
+           [{ text: "OK" }]
+         );
+     } else {
+       showToast('Erro ao obter ou processar localização.');
+     }
+    } finally {
+      setIsLocationLoading(false);
     }
   };
 
@@ -118,7 +150,7 @@ const CreatePost = ({ navigation }) => {
     const newList = accessibility.includes(option)
       ? accessibility.filter(item => item !== option)
       : [...accessibility, option];
-    if (option === 'Outro' && accessibility.includes(option)) setOtherAccessibility('');
+    if (option === 'Outro' && !newList.includes('Outro')) setOtherAccessibility('');
     setAccessibility(newList);
     if (newList.length > 0 && errors.accessibility) setErrors(prev => ({ ...prev, accessibility: false }));
   };
@@ -126,18 +158,23 @@ const CreatePost = ({ navigation }) => {
   const handleCreatePost = async () => {
     const titleError = !title.trim();
     const descriptionError = !description.trim();
-    const accessibilityError = accessibility.length === 0;
+    const accessibilityError = accessibility.length === 0 || (accessibility.includes('Outro') && !otherAccessibility.trim());
+
     if (titleError || descriptionError || accessibilityError) {
       setErrors({ title: titleError, description: descriptionError, accessibility: accessibilityError });
-      showToast('Campos obrigatórios não preenchidos');
+      let errorMsg = 'Campos obrigatórios não preenchidos.';
+      if (accessibilityError && accessibility.includes('Outro') && !otherAccessibility.trim()){
+        errorMsg = 'Por favor, especifique o tipo de acessibilidade "Outro".';
+      }
+      showToast(errorMsg);
       return;
     }
     setErrors({ title: false, description: false, accessibility: false });
     try {
       const storedPosts = await AsyncStorage.getItem('posts');
       const posts = storedPosts ? JSON.parse(storedPosts) : [];
-      const finalAccessibility = accessibility.includes('Outro') 
-        ? [...accessibility.filter(item => item !== 'Outro'), otherAccessibility] 
+      const finalAccessibility = accessibility.includes('Outro')
+        ? [...accessibility.filter(item => item !== 'Outro'), otherAccessibility.trim()]
         : accessibility;
       const newPost = {
         id: Date.now().toString(),
@@ -162,12 +199,12 @@ const CreatePost = ({ navigation }) => {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
+    <KeyboardAvoidingView
+      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      keyboardVerticalOffset={keyboardVerticalOffsetValue}
     >
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <ScrollView contentContainerStyle={styles.scrollContentContainer}>
         <Text style={styles.title}>Criar Novo Post</Text>
         <View style={styles.inputContainer}>
           <TextInput
@@ -194,7 +231,7 @@ const CreatePost = ({ navigation }) => {
             numberOfLines={3}
           />
           <Text style={styles.label}>Tipos de Acessibilidade</Text>
-          <View style={[styles.accessibilityContainer, errors.accessibility && styles.errorAccessibilityContainer]}>  
+          <View style={[styles.accessibilityContainer, errors.accessibility && styles.errorAccessibilityContainer]}>
             {accessibilityOptions.map(option => (
               <TouchableOpacity
                 key={option}
@@ -215,15 +252,20 @@ const CreatePost = ({ navigation }) => {
           </View>
           {accessibility.includes('Outro') && (
             <TextInput
-              style={styles.input}
+              style={[styles.input, errors.accessibility && accessibility.includes('Outro') && !otherAccessibility.trim() && styles.errorInput]}
               placeholder="Especifique outro tipo"
               value={otherAccessibility}
-              onChangeText={setOtherAccessibility}
+              onChangeText={text => {
+                setOtherAccessibility(text);
+                if (errors.accessibility && text.trim()) setErrors(prev => ({ ...prev, accessibility: false }));
+              }}
               placeholderTextColor="#999"
             />
           )}
           <TouchableOpacity style={styles.button} onPress={pickImage}>
-            <Text style={styles.buttonText}>Escolher Imagem (opcional)</Text>
+            <Text style={styles.buttonText}>
+              {image ? "Alterar Imagem" : "Escolher Imagem (opcional)"}
+            </Text>
           </TouchableOpacity>
           {image && (
             <View style={styles.imageContainer}>
@@ -233,10 +275,18 @@ const CreatePost = ({ navigation }) => {
               </TouchableOpacity>
             </View>
           )}
-          <TouchableOpacity style={styles.button} onPress={toggleMap}>
-            <Text style={styles.buttonText}>
-              Registrar Localização Atual (opcional)
-            </Text>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={toggleMap}
+            disabled={isLocationLoading}
+          >
+            {isLocationLoading ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <Text style={styles.buttonText}>
+                Registrar Localização Atual (opcional)
+              </Text>
+            )}
           </TouchableOpacity>
           {showMap && location && (
             <View style={styles.mapContainer}>
@@ -260,10 +310,10 @@ const CreatePost = ({ navigation }) => {
             </View>
           )}
         </View>
+        <TouchableOpacity style={styles.createButton} onPress={handleCreatePost}>
+          <Text style={styles.buttonText}>Criar Post</Text>
+        </TouchableOpacity>
       </ScrollView>
-      <TouchableOpacity style={styles.createButton} onPress={handleCreatePost}>
-        <Text style={styles.buttonText}>Criar Post</Text>
-      </TouchableOpacity>
     </KeyboardAvoidingView>
   );
 };
@@ -273,15 +323,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFF',
   },
-  scrollContainer: {
-    padding: 20,
-    paddingBottom: 80,
+  scrollContentContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 40,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#007BFF',
     marginBottom: 20,
+    textAlign: 'center',
   },
   inputContainer: {
     width: '100%',
@@ -331,7 +383,9 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 5,
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 20,
+    minHeight: 40,
+    justifyContent: 'center',
   },
   buttonText: {
     color: '#FFF',
@@ -342,7 +396,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 20,
   },
   imagePreview: {
     width: 200,
@@ -359,21 +413,19 @@ const styles = StyleSheet.create({
   },
   mapContainer: {
     width: '100%',
-    marginBottom: 10,
+    marginBottom: 20,
   },
   map: {
     width: '100%',
     height: 300,
   },
   createButton: {
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
     backgroundColor: '#007BFF',
-    padding: 15,
+    paddingVertical: 15,
+    paddingHorizontal: 10,
     borderRadius: 5,
     alignItems: 'center',
+    marginTop: 20,
   },
   errorInput: {
     borderColor: 'red',
@@ -383,6 +435,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 5,
     padding: 5,
+    marginBottom:10,
   },
 });
 
