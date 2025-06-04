@@ -3,6 +3,7 @@
     "name": "local-star",
     "slug": "local-star",
     "version": "1.0.0",
+    "owner": "brunols7",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -13,13 +14,19 @@
       "backgroundColor": "#ffffff"
     },
     "extra": {
-      "googleMapsApiKey": "AIzaSyDAow1RZXRxPNX_B42fruDLPh89sthXAP0"
+      "googleMapsApiKey": "AIzaSyDAow1RZXRxPNX_B42fruDLPh89sthXAP0",
+      "eas": {
+        "projectId": "248ce664-500f-45a5-894c-07f183a7a6e5"
+      }
     },
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Permitimos usar câmera para anexar fotos aos posts",
         "NSPhotoLibraryUsageDescription": "Permitimos acessar biblioteca de fotos para anexar fotos aos posts"
+      },
+      "runtimeVersion": {
+        "policy": "appVersion"
       }
     },
     "android": {
@@ -32,11 +39,22 @@
           "apiKey": "AIzaSyDAow1RZXRxPNX_B42fruDLPh89sthXAP0"
         }
       },
-      "permissions": ["CAMERA", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE"],
-      "package": "com.anonymous.localstar"
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ],
+      "package": "com.anonymous.localstar",
+      "runtimeVersion": "1.0.0"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/248ce664-500f-45a5-894c-07f183a7a6e5"
     }
   }
 }
