@@ -32,15 +32,15 @@ const Profile = ({ navigation }) => {
       }
       await AsyncStorage.setItem('userName', name);
       await AsyncStorage.setItem('userDisability', disability || '');
-      setErrorMessage('Perfil salvo com sucesso');
+      setErrorMessage('Alterações salvas com sucesso');
     } catch (error) {
-      setErrorMessage('Erro ao salvar perfil');
+      setErrorMessage('Erro ao salvar alterações');
     }
   };
 
   const handleLogout = async () => {
     try {
-      await AsyncStorage.clear();
+      //await AsyncStorage.clear();
       navigation.reset({
         index: 0,
         routes: [{ name: 'Login' }],
@@ -89,14 +89,14 @@ const Profile = ({ navigation }) => {
           placeholderTextColor="#999"
         />
         <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile}>
-          <Text style={styles.buttonText}>Salvar Perfil</Text>
+          <Text style={styles.buttonText}>Salvar alterações</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.buttonText}>Logout</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.clearPostsButton} onPress={handleClearPosts}>
-          <Text style={styles.buttonText}>Limpar Posts</Text>
-        </TouchableOpacity>
+        {/* <TouchableOpacity style={styles.clearPostsButton} onPress={handleClearPosts}>
+          <Text style={styles.buttonTextClearPosts}>Limpar posts</Text>
+        </TouchableOpacity> */}
         {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
       </View>
     </ScrollView>
@@ -151,13 +151,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 15,
   },
-  clearPostsButton: {
-    backgroundColor: '#FFA500',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginBottom: 15,
-  },
+  // clearPostsButton: {
+  //   backgroundColor: 'transparent',
+  //   padding: 15,
+  //   borderRadius: 5,
+  //   alignItems: 'center',
+  //   marginBottom: 15,
+  //   borderColor: '#007BFF',
+  //   borderWidth: 1,
+  // },
+  // buttonTextClearPosts: {
+  //   color: '#007BFF',
+  //   fontSize: 16,
+  //   fontWeight: 'bold',
+  // },
   buttonText: {
     color: '#FFF',
     fontSize: 16,

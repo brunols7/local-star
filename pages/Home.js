@@ -3,29 +3,136 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image } from 'react
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import metro from '../assets/metro.jpg';
+import praca from '../assets/praca.jpg';
+import senac from '../assets/senac.jpg';
 
 const Home = ({ navigation }) => {
   const [posts, setPosts] = useState([]);
   const [filter, setFilter] = useState('todos');
 
+  const initialPosts = [
+  {
+    id: "post1",
+    title: "Acessibilidade na Biblioteca do Senac Santo Amaro",
+    date: "2025-06-01T10:00:00Z",
+    locationName: "Biblioteca Senac Santo Amaro",
+    streetName: "Rua Dr. Álvaro Alvim, 123",
+    image: senac,
+    description:
+      "A biblioteca do Senac Santo Amaro possui excelente acessibilidade: elevadores amplos, piso tátil para orientação, banheiros adaptados para cadeirantes, e sinalização visual clara em todo o espaço. Ideal para pessoas com deficiência e mobilidade reduzida.",
+    accessibility: ["Elevador", "Piso Tátil", "Banheiro Adaptado"],
+    ratings: {
+      "user1@example.com": 1,
+      "user2@example.com": 1,
+      "user3@example.com": 1,
+    },
+    positive: 100,
+    negative: 0,
+    comments: [
+      {
+        id: "c1",
+        user: "Ana Silva",
+        text: "Lugar muito acessível e confortável para estudo.",
+        date: "2025-06-02T12:00:00Z",
+      },
+      {
+        id: "c2",
+        user: "João Pereira",
+        text: "Adorei o piso tátil que facilita a mobilidade.",
+        date: "2025-06-02T15:30:00Z",
+      },
+    ],
+  },
+  {
+    id: "post2",
+    title: "Praça Central com Acessibilidade Limitada",
+    date: "2025-05-28T09:30:00Z",
+    locationName: "Praça Central",
+    streetName: "Av. Principal, 500",
+    image:
+      praca,
+    description:
+      "Praça com calçadas irregulares e pouca sinalização tátil. Falta banheiro adaptado e rampas adequadas, dificultando o acesso para cadeirantes e pessoas com deficiência visual.",
+    accessibility: ["Sem Banheiro Adaptado", "Calçadas Irregulares"],
+    ratings: {
+      "user1@example.com": 0,
+      "user4@example.com": 0,
+    },
+    positive: 0,
+    negative: 100,
+    comments: [
+      {
+        id: "c3",
+        user: "Carlos Souza",
+        text: "Precisa melhorar muito para ser acessível.",
+        date: "2025-05-29T10:00:00Z",
+      },
+    ],
+  },
+  {
+    id: "post3",
+    title: "Estação de Metrô com Acessibilidade Básica",
+    date: "2025-06-02T14:00:00Z",
+    locationName: "Estação Central de Metrô",
+    streetName: "Rua da Estação, 77",
+    image:
+      metro,
+    description:
+      "Estação com elevadores e rampas, mas com sinalização visual confusa e ausência de mapas em braile. Banheiros adaptados disponíveis, porém precisam de manutenção.",
+    accessibility: ["Elevador", "Rampa", "Banheiro Adaptado"],
+    ratings: {
+      "user2@example.com": 1,
+      "user3@example.com": 0,
+    },
+    positive: 50,
+    negative: 50,
+    comments: [],
+  },
+];
+
+
   useEffect(() => {
-    const loadPosts = async () => {
-      try {
-        const storedPosts = await AsyncStorage.getItem('posts');
-        const parsedPosts = storedPosts ? JSON.parse(storedPosts).map(post => ({
-          ...post,
-          accessibility: Array.isArray(post.accessibility) ? post.accessibility : post.accessibility ? [post.accessibility] : [],
-        })) : [];
-        setPosts(parsedPosts);
-      } catch (error) {
-        console.log('Erro ao carregar posts:', error);
+  const loadInitialPosts = async () => {
+    try {
+      const storedPosts = await AsyncStorage.getItem('posts');
+      if (!storedPosts) {
+        await AsyncStorage.setItem('posts', JSON.stringify(initialPosts));
       }
-    };
-    loadPosts();
-  
-    const unsubscribe = navigation.addListener('focus', loadPosts);
-    return unsubscribe;
-  }, [navigation]);
+    } catch (error) {
+      console.log('Erro ao setar posts iniciais:', error);
+    }
+  };
+
+  const loadPosts = async () => {
+    try {
+      const storedPosts = await AsyncStorage.getItem('posts');
+      const parsedPosts = storedPosts
+        ? JSON.parse(storedPosts).map(post => ({
+            ...post,
+            accessibility: Array.isArray(post.accessibility)
+              ? post.accessibility
+              : post.accessibility
+              ? [post.accessibility]
+              : [],
+          }))
+        : [];
+      setPosts(parsedPosts);
+    } catch (error) {
+      console.log('Erro ao carregar posts:', error);
+    }
+  };
+
+  const init = async () => {
+    await loadInitialPosts();
+    await loadPosts();
+  };
+
+  init();
+
+  const unsubscribe = navigation.addListener('focus', loadPosts);
+  return unsubscribe;
+}, [navigation]);
 
   const handleRating = async (postId, rating) => {
     const userEmail = await AsyncStorage.getItem('userEmail');
@@ -49,36 +156,67 @@ const Home = ({ navigation }) => {
   const filteredPosts = (filter === 'todos' ? [...posts] : posts.filter(post => post.accessibility.includes(filter))).sort((a, b) => new Date(b.date) - new Date(a.date));
 
   const renderPost = ({ item }) => (
+
     <TouchableOpacity
-      style={styles.postContainer}
+      style={styles.postCard}
       onPress={() => navigation.navigate('PostDetail', { post: item })}
+      activeOpacity={0.9}
     >
-      {item.image && <Image source={{ uri: item.image }} style={styles.postImage} />}
-      <Text style={styles.postTitle}>{item.title}</Text>
-      <Text style={styles.postDate}>{new Date(item.date).toLocaleDateString()}</Text>
-      {item.locationName && <Text style={styles.postLocation}>{item.locationName}</Text>}
-      {item.streetName && <Text style={styles.postStreet}>{item.streetName}</Text>}
-      <Text style={styles.postDescription}>{item.description}</Text>
-      <Text style={styles.postAccessibility}>
-        Acessibilidade: {Array.isArray(item.accessibility) ? item.accessibility.join(', ') : item.accessibility || 'Não especificado'}
-      </Text>
-      <Text style={styles.postRating}>Útil: {item.positive}% | Não útil: {item.negative}%</Text>
-      <View style={styles.ratingContainer}>
-        <TouchableOpacity
-          style={styles.ratingButton}
-          onPress={() => handleRating(item.id, 'useful')}
-        >
-          <Text style={styles.ratingText}>Útil</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.ratingButton}
-          onPress={() => handleRating(item.id, 'notUseful')}
-        >
-          <Text style={styles.ratingText}>Não útil</Text>
-        </TouchableOpacity>
+      {item.image && (
+        <Image
+          source={typeof item.image === 'string' ? { uri: item.image } : item.image}
+          style={styles.postImage}
+        />
+      )}
+
+      <View style={styles.postContent}>
+        <Text style={styles.postTitle}>{item.title}</Text>
+
+        {item.locationName && (
+          <Text style={styles.postLocation}>{item.locationName}</Text>
+        )}
+        {item.streetName && (
+          <Text style={styles.postStreet}>{item.streetName}</Text>
+        )}
+
+        <Text style={styles.postDescription} numberOfLines={3}>
+          {item.description}
+        </Text>
+
+        <View style={styles.tagContainer}>
+          <View style={styles.tag}>
+            <Text style={styles.tagText}>👍 {item.positive ?? 0}%</Text>
+          </View>
+          <View style={styles.tag}>
+            <Text style={styles.tagText}>👎 {item.negative ?? 0}%</Text>
+          </View>
+          {item.accessibility && item.accessibility.length > 0 && (
+            <View style={styles.tag}>
+              <Text style={styles.tagText}>
+                ♿ {item.accessibility.length}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.ratingContainer}>
+          <TouchableOpacity
+            style={styles.ratingButton}
+            onPress={() => handleRating(item.id, 'useful')}
+          >
+            <Text style={styles.ratingText}>Útil</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.ratingButton}
+            onPress={() => handleRating(item.id, 'notUseful')}
+          >
+            <Text style={styles.ratingText}>Não útil</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </TouchableOpacity>
   );
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -127,6 +265,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F5F5',
   },
+
   header: {
     height: 60,
     backgroundColor: '#FFF',
@@ -136,81 +275,108 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
+
   profileIcon: {
     padding: 10,
   },
+
   postList: {
     flex: 1,
   },
-  postContainer: {
-    backgroundColor: '#FFF',
-    padding: 15,
-    marginVertical: 5,
-    marginHorizontal: 10,
-    borderRadius: 10,
+
+  // 🔥 Card do Post
+  postCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    marginVertical: 8,
+    marginHorizontal: 12,
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
   },
+
   postImage: {
     width: '100%',
-    height: 150,
-    borderRadius: 5,
-    marginBottom: 10,
+    height: 180,
   },
+
+  postContent: {
+    padding: 16,
+  },
+
   postTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#007BFF',
-    marginBottom: 5,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 4,
   },
-  postDate: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 5,
-  },
+
   postLocation: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 5,
+    color: '#4B5563',
+    marginBottom: 2,
+    fontWeight: '600',
   },
+
   postStreet: {
     fontSize: 14,
-    color: '#666',
-    marginBottom: 5,
+    color: '#6B7280',
+    marginBottom: 8,
   },
+
   postDescription: {
     fontSize: 14,
-    color: '#333',
-    marginBottom: 5,
+    color: '#4B5563',
+    lineHeight: 20,
+    marginBottom: 12,
   },
-  postAccessibility: {
-    fontSize: 14,
-    color: '#007BFF',
-    marginBottom: 5,
-  },
-  postRating: {
-    fontSize: 12,
-    color: '#666',
+
+  tagContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
     marginBottom: 10,
   },
+
+  tag: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 50,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+  },
+
+  tagText: {
+    fontSize: 13,
+    color: '#374151',
+    fontWeight: '600',
+  },
+
   ratingContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
+    marginTop: 8,
   },
+
   ratingButton: {
-    padding: 10,
+    flex: 1,
+    marginHorizontal: 4,
+    paddingVertical: 10,
     borderWidth: 1,
     borderColor: '#007BFF',
-    borderRadius: 5,
+    borderRadius: 8,
+    alignItems: 'center',
   },
+
   ratingText: {
     color: '#007BFF',
     fontSize: 14,
+    fontWeight: '600',
   },
+
+  // 🔘 Botão flutuante
   createPostButton: {
     position: 'absolute',
     bottom: 20,
@@ -218,18 +384,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#007BFF',
     padding: 15,
     borderRadius: 50,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
   },
+
   createPostText: {
     color: '#FFF',
     fontSize: 16,
     fontWeight: 'bold',
   },
+
+  // 🚫 Empty State
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
   },
+
   emptyText: {
     fontSize: 20,
     fontWeight: 'bold',
@@ -237,12 +412,14 @@ const styles = StyleSheet.create({
     marginTop: 20,
     textAlign: 'center',
   },
+
   emptySubText: {
     fontSize: 16,
     color: '#666',
     marginTop: 10,
     textAlign: 'center',
   },
+
   emptyButton: {
     marginTop: 20,
     backgroundColor: '#007BFF',
@@ -250,11 +427,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     borderRadius: 25,
   },
+
   emptyButtonText: {
     color: '#FFF',
     fontSize: 16,
     fontWeight: 'bold',
   },
 });
+
 
 export default Home;

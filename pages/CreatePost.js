@@ -40,7 +40,6 @@ const CreatePost = ({ navigation }) => {
           });
           await updateStreetName(loc.coords.latitude, loc.coords.longitude);
         } catch (error) {
-          // Não mostra erro para localização inicial automática se falhar
         }
       }
     })();
